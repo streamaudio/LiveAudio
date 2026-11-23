@@ -1,9 +1,9 @@
-av
-descript-audio-codec
+numpy==1.26.4
 einops
-gdown
-huggingface_hub
-numpy
-open_clip_torch
+av==12.3.0
 safetensors
 soundfile
+transformers==4.42.4
+open_clip_torch==2.32.0
+huggingface_hub
+gdown

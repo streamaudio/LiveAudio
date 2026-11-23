@@ -12,6 +12,8 @@ import numpy as np
 import torch
 from torchvision.transforms import v2
 
+from .synchformer import Synchformer
+
 
 class FrameSource:
 
@@ -100,7 +102,6 @@ class VisualEncoder:
     def __init__(self, weights_dir, device):
         from open_clip import create_model
         from open_clip.factory import add_model_config
-        from stable_audio_tools.models.synchformer.synchformer import Synchformer
         weights_dir = Path(weights_dir)
         self.sync_transform = v2.Compose([
             v2.Resize(224, interpolation=v2.InterpolationMode.BICUBIC, antialias=True),

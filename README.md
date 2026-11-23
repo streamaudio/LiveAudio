@@ -2,42 +2,44 @@
 
 Inference code and checkpoint for **LiveAudio: From Bidirectional to Autoregressive Diffusion for Real-Time Streaming Video-to-Audio Generation**.
 
-Audio samples: https://streamaudio.github.io/
+Yuxuan Jiang<sup>1</sup>, Zehua Chen<sup>1</sup>, Yusheng Dai<sup>2</sup>, Andong Wang<sup>3</sup>, Weibei Dou<sup>1</sup>, Jun Zhu<sup>1,†</sup>
+
+<sup>1</sup>Tsinghua University, <sup>2</sup>Monash University, <sup>3</sup>Renmin University of China, <sup>†</sup>corresponding author
+
+[Audio samples](https://streamaudio.github.io/) · [Model](https://huggingface.co/YuXuAN0622/LiveAudio)
 
 LiveAudio generates 48 kHz stereo audio for a video as a stream. The video file is decoded once, frame by frame, and nothing of the video is precomputed. Every 0.1 s block of audio is generated as soon as the frames it depends on have arrived, with four sampling steps and no guidance, and is decoded to a waveform immediately by a causal audio VAE. The same checkpoint covers three tasks: video-to-audio, video-text-to-audio (a text prompt in addition to the video) and text-to-audio (a text prompt only).
 
 ## Setup
 
-Tested with Python 3.10, PyTorch 2.1.0 (CUDA 12.1), PyAV 12.3.0 and one NVIDIA A100 GPU. Use a fresh environment: the requirements of Omni2Sound pin the versions of many packages.
+The code is self-contained; it needs PyTorch and a few pip packages. Tested with Python 3.10, PyTorch 2.1.0 (CUDA 12.1) and one NVIDIA A100 GPU; inference uses about 6 GB of GPU memory.
 
 ```bash
 conda create -n liveaudio python=3.10 -y
 conda activate liveaudio
-pip install torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 --index-url https://download.pytorch.org/whl/cu121
-bash scripts/setup_third_party.sh
-pip install -r third_party/Omni2Sound/requirements.txt
+pip install torch==2.1.0 torchvision==0.16.0 --index-url https://download.pytorch.org/whl/cu121
 pip install -r requirements.txt
 ```
 
-`scripts/setup_third_party.sh` clones the two code bases the model is built on, at fixed commits, into `third_party/`: [Omni2Sound](https://github.com/omni2sound/Omni2Sound) (transformer and conditioning modules) and [soundreactor_vae](https://github.com/SonyResearch/soundreactor_vae) (causal audio VAE).
+`ffmpeg` is needed only for `--mux`.
 
 ## Weights
-
-Place the LiveAudio checkpoint `liveaudio.safetensors` in `weights/`, then download the pretrained encoders and the audio VAE:
 
 ```bash
 python scripts/download_weights.py
 ```
 
+The script downloads the following files into `weights/` and checks their SHA-256:
+
 | File in `weights/` | Source |
 | --- | --- |
-| `liveaudio.safetensors` | LiveAudio generator (this release) |
+| `liveaudio.safetensors` | [LiveAudio](https://huggingface.co/YuXuAN0622/LiveAudio) |
 | `flan-t5-base/` | [google/flan-t5-base](https://huggingface.co/google/flan-t5-base) |
 | `DFN5B-CLIP-ViT-H-14-384/` | [apple/DFN5B-CLIP-ViT-H-14-384](https://huggingface.co/apple/DFN5B-CLIP-ViT-H-14-384) |
-| `synchformer_state_dict.pth` | [MMAudio release](https://github.com/hkchengrex/MMAudio/releases/tag/v0.1) |
-| `soundreactor_vae/sr_causal_ds_1600_dim_64.ckpt` | [soundreactor_vae](https://github.com/SonyResearch/soundreactor_vae) |
+| `synchformer_state_dict.pth` | [MMAudio release v0.1](https://github.com/hkchengrex/MMAudio/releases/tag/v0.1) |
+| `soundreactor_vae/sr_causal_ds_1600_dim_64.ckpt` | [SoundReactor VAE](https://github.com/SonyResearch/soundreactor_vae) (Google Drive) |
 
-The script checks the SHA-256 of the downloaded weights.
+If the Google Drive download fails, download `sr_causal_ds_1600_dim_64.ckpt` from the [folder linked by SoundReactor VAE](https://drive.google.com/drive/folders/1rlROnePyQU4b8GzjkB07W5vlb297p5_c), place it in `weights/soundreactor_vae/` and run the script again.
 
 ## Usage
 
@@ -58,7 +60,19 @@ python infer.py --prompt "rain falls on a tin roof"
 | `--no-cuda-graph` | run without CUDA graphs; slower, same output |
 | `--output-dir` | where the results are written (default `outputs/`) |
 
-For each video the script writes `<name>.wav` (48 kHz stereo, 32-bit float; for text-to-audio the name is taken from the prompt) and prints one line of statistics: `first_audio_ms` is the time from the start of the stream to the first decoded block, `block_processing_ms` the mean time to generate and decode a block of 100 ms, and `playout_delay_ms` the smallest constant delay with which the audio could be played without interruption. The timing fields describe a live stream only with `--realtime` and on a GPU that runs nothing else.
+For each input the script writes `<name>.wav` (48 kHz stereo, 32-bit float; for text-to-audio the name is taken from the prompt) and prints one line of statistics: `first_audio_ms` is the time from the start of the stream to the first decoded block, `block_processing_ms` the mean time to generate and decode a block of 100 ms, and `playout_delay_ms` the smallest constant delay with which the audio could be played without interruption. The timing fields describe a live stream only with `--realtime` and on a GPU that runs nothing else.
+
+From Python:
+
+```python
+from liveaudio.pipeline import LiveAudio
+
+pipe = LiveAudio("weights/liveaudio.safetensors", "weights")
+audio, stats = pipe.generate("video.mp4", prompt=None, seed=0)
+audio, stats = pipe.generate_from_text("rain falls on a tin roof", seconds=10, seed=0)
+```
+
+`audio` is a `(2, samples)` float array at 48 kHz. `generate` and `generate_from_text` also take `on_audio`, a function that receives each decoded block as soon as it is ready.
 
 Notes:
 
@@ -76,8 +90,31 @@ Notes:
 | `liveaudio/engine.py` | block-by-block few-step sampling with a key-value cache |
 | `liveaudio/student.py` | block-causal forward pass of the transformer |
 | `liveaudio/layout.py` | timing of audio blocks and video features |
-| `liveaudio/model.py` | loading of the generator and of the streaming VAE decoder |
+| `liveaudio/dit.py` | transformer modules |
+| `liveaudio/conditioning.py` | text, duration and video-feature conditioning |
+| `liveaudio/synchformer.py` | Synchformer video encoder |
+| `liveaudio/vae.py` | streaming causal VAE decoder |
+| `liveaudio/model.py` | loading of the generator and the decoder |
+
+## Citation
+
+```bibtex
+@misc{jiang2026liveaudio,
+  title  = {LiveAudio: From Bidirectional to Autoregressive Diffusion for Real-Time Streaming Video-to-Audio Generation},
+  author = {Jiang, Yuxuan and Chen, Zehua and Dai, Yusheng and Wang, Andong and Dou, Weibei and Zhu, Jun},
+  year   = {2026}
+}
+```
 
 ## Acknowledgements
 
-This code builds on [Omni2Sound](https://github.com/omni2sound/Omni2Sound), [stable-audio-tools](https://github.com/Stability-AI/stable-audio-tools), the [SoundReactor VAE](https://github.com/SonyResearch/soundreactor_vae), [Synchformer](https://github.com/v-iashin/Synchformer), [MMAudio](https://github.com/hkchengrex/MMAudio), [OpenCLIP](https://github.com/mlfoundations/open_clip) and [DFN](https://huggingface.co/apple/DFN5B-CLIP-ViT-H-14-384). Their licenses apply to the respective code and weights.
+Parts of the code are adapted from the following projects; their licenses are in `licenses/`.
+
+| Code | Adapted from | License |
+| --- | --- | --- |
+| `liveaudio/dit.py` | [stable-audio-tools](https://github.com/Stability-AI/stable-audio-tools), [Omni2Sound](https://github.com/omni2sound/Omni2Sound) | MIT, CC BY-NC 4.0 |
+| `liveaudio/conditioning.py` | [stable-audio-tools](https://github.com/Stability-AI/stable-audio-tools), [Omni2Sound](https://github.com/omni2sound/Omni2Sound) | MIT, CC BY-NC 4.0 |
+| `liveaudio/synchformer.py` | [Synchformer](https://github.com/v-iashin/Synchformer) | MIT |
+| `liveaudio/vae.py` | [SoundReactor VAE](https://github.com/SonyResearch/soundreactor_vae) | MIT |
+
+The video features follow [MMAudio](https://github.com/hkchengrex/MMAudio). The pretrained weights downloaded by `scripts/download_weights.py` are subject to the licenses of their sources.

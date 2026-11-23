@@ -10,7 +10,7 @@ import torch
 
 from .engine import BlockEngine, cast_linear_weights_, draw_renoise
 from .frontend import ConditionBuffer, FrameSource, VisualEncoder
-from .model import add_third_party, initial_conditions, load_decoder, load_generator
+from .model import load_decoder, load_generator
 from .student import StreamingDiT
 
 SAMPLE_RATE = 48000
@@ -27,17 +27,16 @@ def video_seconds(path) -> float:
 
 class LiveAudio:
 
-    def __init__(self, checkpoint, weights_dir, third_party, device="cuda:0", cuda_graph=True):
+    def __init__(self, checkpoint, weights_dir, device="cuda:0", cuda_graph=True):
         self.device = torch.device(device)
         self.weights_dir = Path(weights_dir)
         self.cuda_graph = cuda_graph
-        third_party = add_third_party(third_party, weights_dir)
         torch.backends.cuda.matmul.allow_tf32 = False
         torch.backends.cudnn.allow_tf32 = False
-        self.model, self.layout, self.t_steps = load_generator(checkpoint, self.device)
-        cast_linear_weights_(self.model.model.model)
-        self.student = StreamingDiT(self.model.model.model, self.layout).to(self.device).eval()
-        self.vae, self.decoder = load_decoder(third_party, weights_dir, self.device)
+        self.dit, self.conditioner, self.layout, self.t_steps = load_generator(checkpoint, weights_dir, self.device)
+        cast_linear_weights_(self.dit)
+        self.student = StreamingDiT(self.dit, self.layout).to(self.device).eval()
+        self.decoder = load_decoder(weights_dir, self.device)
         self.encoder = VisualEncoder(weights_dir, self.device)
         self.engines = {}
 
@@ -58,7 +57,7 @@ class LiveAudio:
     def generate_from_text(self, prompt, seconds=MAX_SECONDS, seed=0, on_audio=None):
         layout = self.layout
         seconds = min(float(seconds), MAX_SECONDS)
-        cond = initial_conditions(self.model, prompt, MAX_SECONDS, 0, layout.num_tokens, self.device)
+        cond = self.conditioner.initial(prompt, False, MAX_SECONDS, self.device)
         engine = self._engine(cond)
         engine.load(cond, *self._noise(seed))
         torch.cuda.synchronize()
@@ -69,7 +68,7 @@ class LiveAudio:
                 begin = time.perf_counter()
                 z = engine.denoise(b)
                 engine.commit(b)
-                y = self.vae.decode(z.float().transpose(1, 2)).float().cpu()
+                y = self.decoder(z.float().transpose(1, 2)).float().cpu()
                 end = time.perf_counter()
                 blocks.append(dict(audio_ready_s=end - start, processing_ms=(end - begin) * 1000))
                 pcm.append(y)
@@ -89,14 +88,13 @@ class LiveAudio:
         clip_count = min(layout.num_clip_frames, max(1, int(math.floor(seconds * 8 + 1e-6))))
         if windows < 1:
             raise ValueError(f"{video} is too short")
-        num_sync = max(1, int(math.floor(seconds * 30 + 1e-6)))
-        cond = initial_conditions(self.model, prompt, MAX_SECONDS, clip_count, num_sync, device)
+        cond = self.conditioner.initial(prompt, True, MAX_SECONDS, device)
         engine = self._engine(cond)
         torch.cuda.synchronize()
         start = time.perf_counter()
         source = FrameSource(video, start, realtime, sync_frames=2 * windows, clip_frames=clip_count)
         engine.load(cond, *self._noise(seed))
-        state = ConditionBuffer(self.model.conditioner, engine, cond, seconds, windows, clip_count)
+        state = ConditionBuffer(self.conditioner, engine, cond, seconds, windows, clip_count)
         frames, sync_buffer, blocks, pcm = [], None, [], []
         b = 0
         try:
@@ -114,7 +112,7 @@ class LiveAudio:
                         begin = time.perf_counter()
                         z = engine.denoise(b).float()
                         engine.commit(b)
-                        y = self.vae.decode(z.transpose(1, 2)).float().cpu()
+                        y = self.decoder(z.transpose(1, 2)).float().cpu()
                         end = time.perf_counter()
                         s = layout.starts[b]
                         blocks.append(dict(audio_start_s=s / 30., video_ready_s=state.required_video_time(b),
