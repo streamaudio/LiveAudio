@@ -1,0 +1,9 @@
+av
+descript-audio-codec
+einops
+gdown
+huggingface_hub
+numpy
+open_clip_torch
+safetensors
+soundfile

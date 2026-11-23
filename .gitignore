@@ -1,0 +1,5 @@
+third_party/
+weights/
+outputs/
+__pycache__/
+*.pyc

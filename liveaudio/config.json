@@ -1,0 +1,38 @@
+{
+    "model_type": "diffusion_cond",
+    "sample_size": 480000,
+    "sample_rate": 48000,
+    "audio_channels": 2,
+    "model": {
+        "conditioning": {
+            "configs": [
+                {"id": "text_prompt", "type": "t5", "config": {"t5_model_name": "flan-t5-base", "max_length": 128, "option": true}},
+                {"id": "seconds_start", "type": "number", "config": {"min_val": 0, "max_val": 512}},
+                {"id": "seconds_total", "type": "number", "config": {"min_val": 0, "max_val": 512}},
+                {"id": "clip_feature", "type": "post_process", "config": {"frame_per_second": 8, "feature_dim": 1024, "use_abs_pos_emb": true, "max_duration": 10, "option": true}},
+                {"id": "sync_feature", "type": "post_process", "config": {"frame_per_second": 30, "target_per_second": 30, "feature_dim": 768, "max_duration": 10}}
+            ],
+            "cond_dim": 1024
+        },
+        "diffusion": {
+            "cross_attention_cond_ids": ["clip_feature", "text_prompt", "seconds_start", "seconds_total"],
+            "global_cond_ids": ["seconds_start", "seconds_total"],
+            "additional_cond_ids": ["sync_feature"],
+            "type": "dit",
+            "config": {
+                "io_channels": 64,
+                "embed_dim": 1536,
+                "depth": 24,
+                "num_heads": 24,
+                "cond_token_dim": 1024,
+                "global_cond_dim": 2048,
+                "additional_cond_dim": 1024,
+                "project_cond_tokens": true,
+                "project_additional_tokens": true,
+                "transformer_type": "continuous_transformer"
+            },
+            "diffusion_objective": "rectified_flow"
+        },
+        "io_channels": 64
+    }
+}
