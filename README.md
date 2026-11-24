@@ -6,7 +6,7 @@ Yuxuan Jiang<sup>1</sup>, Zehua Chen<sup>1</sup>, Yusheng Dai<sup>2</sup>, Andon
 
 <sup>1</sup>Tsinghua University, <sup>2</sup>Monash University, <sup>3</sup>Renmin University of China, <sup>†</sup>corresponding author
 
-[Audio samples](https://streamaudio.github.io/) · [Model](https://huggingface.co/YuXuAN0622/LiveAudio)
+[Paper](https://arxiv.org/abs/2611.30714) · [Project page](https://streamaudio.github.io/) · [Model](https://huggingface.co/YuXuAN0622/LiveAudio)
 
 LiveAudio generates 48 kHz stereo audio for a video as a stream. The video file is decoded once, frame by frame, and nothing of the video is precomputed. Every 0.1 s block of audio is generated as soon as the frames it depends on have arrived, with four sampling steps and no guidance, and is decoded to a waveform immediately by a causal audio VAE. The same checkpoint covers three tasks: video-to-audio, video-text-to-audio (a text prompt in addition to the video) and text-to-audio (a text prompt only).
 
