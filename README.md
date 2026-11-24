@@ -43,6 +43,15 @@ If the Google Drive download fails, download `sr_causal_ds_1600_dim_64.ckpt` fro
 
 ## Usage
 
+`examples/` contains four 8-second test videos without sound: `hammer.mp4`, `table_tennis.mp4`, `fireworks.mp4` and `printer.mp4`.
+
+```bash
+python infer.py examples/hammer.mp4 examples/table_tennis.mp4 examples/fireworks.mp4 --mux
+python infer.py examples/printer.mp4 --prompt "A dot matrix printer whirs to life, emitting a rapid, high-pitched, buzzing printing sound that then ceases." --mux
+```
+
+The results are written to `outputs/`. More generally:
+
 ```bash
 python infer.py video.mp4
 python infer.py video.mp4 --prompt "a dog barks twice" --mux
@@ -95,16 +104,6 @@ Notes:
 | `liveaudio/synchformer.py` | Synchformer video encoder |
 | `liveaudio/vae.py` | streaming causal VAE decoder |
 | `liveaudio/model.py` | loading of the generator and the decoder |
-
-## Citation
-
-```bibtex
-@misc{jiang2026liveaudio,
-  title  = {LiveAudio: From Bidirectional to Autoregressive Diffusion for Real-Time Streaming Video-to-Audio Generation},
-  author = {Jiang, Yuxuan and Chen, Zehua and Dai, Yusheng and Wang, Andong and Dou, Weibei and Zhu, Jun},
-  year   = {2026}
-}
-```
 
 ## License
 
