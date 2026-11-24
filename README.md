@@ -106,15 +106,10 @@ Notes:
 }
 ```
 
+## License
+
+The code and the model weights are released under [CC BY-NC 4.0](LICENSE). The pretrained encoders and the VAE downloaded by `scripts/download_weights.py` are subject to the licenses of their sources.
+
 ## Acknowledgements
 
-Parts of the code are adapted from the following projects; their licenses are in `licenses/`.
-
-| Code | Adapted from | License |
-| --- | --- | --- |
-| `liveaudio/dit.py` | [stable-audio-tools](https://github.com/Stability-AI/stable-audio-tools), [Omni2Sound](https://github.com/omni2sound/Omni2Sound) | MIT, CC BY-NC 4.0 |
-| `liveaudio/conditioning.py` | [stable-audio-tools](https://github.com/Stability-AI/stable-audio-tools), [Omni2Sound](https://github.com/omni2sound/Omni2Sound) | MIT, CC BY-NC 4.0 |
-| `liveaudio/synchformer.py` | [Synchformer](https://github.com/v-iashin/Synchformer) | MIT |
-| `liveaudio/vae.py` | [SoundReactor VAE](https://github.com/SonyResearch/soundreactor_vae) | MIT |
-
-The video features follow [MMAudio](https://github.com/hkchengrex/MMAudio). The pretrained weights downloaded by `scripts/download_weights.py` are subject to the licenses of their sources.
+LiveAudio builds on [Omni2Sound](https://github.com/omni2sound/Omni2Sound) and [stable-audio-tools](https://github.com/Stability-AI/stable-audio-tools), from which the transformer and the conditioning are adapted, the [SoundReactor VAE](https://github.com/SonyResearch/soundreactor_vae) for the causal audio VAE, [Synchformer](https://github.com/v-iashin/Synchformer) and [MMAudio](https://github.com/hkchengrex/MMAudio) for the synchronization features, [OpenCLIP](https://github.com/mlfoundations/open_clip) with [DFN5B-CLIP](https://huggingface.co/apple/DFN5B-CLIP-ViT-H-14-384) for the visual features and [Flan-T5](https://huggingface.co/google/flan-t5-base) for the text encoder. We thank the authors for releasing their code and models.
